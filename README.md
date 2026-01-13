@@ -1,39 +1,117 @@
 # SriFacturacion
 
-TODO: Delete this and the text below, and describe your gem
+Biblioteca Ruby para **facturación electrónica en Ecuador (SRI)**.
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/sri_facturacion`. To experiment with that code, run `bin/console` for an interactive prompt.
+Incluye utilidades para:
 
-## Installation
+- Generar **clave de acceso** (módulo 11 y código numérico).
+- **Firmar XML** (XAdES-BES) a partir de un certificado `.p12`.
+- Enviar comprobantes a los servicios SOAP del SRI (recepción / autorización), usando endpoints de pruebas.
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
+> Nota: esta gema es útil como base de integración. Ajusta los endpoints y validaciones según tu ambiente (pruebas/producción) y el tipo de comprobante.
 
-Install the gem and add to the application's Gemfile by executing:
+## Instalación
 
-```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+Agrega en tu `Gemfile`:
+
+```ruby
+gem "sri_facturacion"
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+Y ejecuta:
 
 ```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+bundle install
 ```
 
-## Usage
+## Uso
 
-TODO: Write usage instructions here
+### Orquestación (generar clave, firmar y enviar)
 
-## Development
+El punto de entrada recomendado es `Sri::InvoiceService::InvoiceOrchestrator`.
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+```ruby
+require "sri/invoice_service"
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+p12_base64 = File.binread("certificado.p12")
+  .then { |bytes| [bytes].pack("m0") } # base64 sin saltos de línea
 
-## Contributing
+p12_password = "tu_password"
+xml_string   = File.read("tmp/factura.xml")
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/sri_facturacion.
+result = Sri::InvoiceService::InvoiceOrchestrator
+  .new(
+    p12_base64: p12_base64,
+    p12_password: p12_password,
+    xml_string: xml_string,
+    sequential: 15
+  )
+  .call
 
-## License
+puts result[:clave_acceso]
+puts result[:signed_xml_path]
+pp result[:recepcion]
+pp result[:autorizacion]
+```
 
-The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+El hash retornado contiene (entre otros):
+
+- `:clave_acceso`
+- `:signed_xml_path` (si el builder persiste el archivo)
+- `:recepcion` (respuesta del servicio de recepción)
+- `:autorizacion` (respuesta del servicio de autorización)
+
+### Consola
+
+Para probar interactivamente dentro del proyecto:
+
+```bash
+bundle exec bin/console
+```
+
+O directamente:
+
+```bash
+bundle exec irb
+```
+
+## Estructura del código
+
+Las piezas principales están bajo `lib/sri/invoice_service/`:
+
+- `access_key_generator.rb` – genera el código numérico y dígito verificador.
+- `invoice_builder.rb` – prepara el XML y aplica la firma.
+- `invoice_sender.rb` – consume los WSDL del SRI.
+- `invoice_orchestrator.rb` – orquesta el flujo completo.
+
+El loader es:
+
+- `lib/sri/invoice_service.rb`
+
+## Desarrollo
+
+- Instalar dependencias:
+
+```bash
+bin/setup
+```
+
+- Ejecutar tests:
+
+```bash
+bundle exec rake spec
+```
+
+- Instalar la gema localmente:
+
+```bash
+bundle exec rake install
+```
+
+## Contribuir
+
+Issues y PRs son bienvenidos.
+
+## Licencia
+
+MIT. Ver `LICENSE.txt`.
