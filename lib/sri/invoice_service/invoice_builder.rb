@@ -20,12 +20,13 @@ module Sri
       XADES_NS = 'http://uri.etsi.org/01903/v1.3.2#'
 
       # @param doc [Nokogiri::XML::Document] Unsigned invoice XML document
-      def initialize(doc:, sequential:, p12_base64:, p12_password:, root_id: 'comprobante')
+      def initialize(doc:, sequential:, p12_base64:, p12_password:, numerical_code: nil)
         @doc = doc
         @sequential = sequential
         @p12_base64 = p12_base64
         @p12_password = p12_password
-        @root_id = root_id
+        @root_id = 'comprobante'
+        @numerical_code = numerical_code
       end
 
       def call
@@ -34,7 +35,7 @@ module Sri
         unsigned_xml = @doc.to_s
         raise 'Debe proporcionar xml_string' if unsigned_xml.strip.empty?
 
-        clave = Sri::InvoiceService::AccessKeyGenerator.generate!(doc: @doc, sequential: @sequential)
+        clave = Sri::InvoiceService::AccessKeyGenerator.generate!(doc: @doc, sequential: @sequential, numerical_code: @numerical_code)
         signed_xml = sign_xml(@doc, clave)
 
         { clave_acceso: clave, signed_xml: signed_xml, signed_xml_path: @last_signed_path }
@@ -306,17 +307,20 @@ module Sri
       end
 
       def validate_pkcs12!(p12_path)
-        passin = if @p12_password && !@p12_password.to_s.empty?
-                   "pass:#{@p12_password}"
-                 else
-                   'pass:'
-                 end
+        passin = @p12_password.to_s.empty? ? 'pass:' : "pass:#{@p12_password}"
 
         cmd = ['openssl', 'pkcs12', '-in', p12_path, '-noout', '-passin', passin]
         _out, err, st = Open3.capture3(*cmd)
         return if st.success?
 
-        raise "Certificado PKCS#12 inválido o password incorrecta (openssl): #{err.to_s.strip}"
+        err_message = err.to_s.strip
+        Rails.logger.error err_message
+        if err_message.include?('inner_evp_generic_fetch:unsupported') &&
+           (err_message.include?('RC2-40-CBC') || err_message.match?(/\bRC4(-\d+)?\b/))
+          raise 'Certificado con cifrado obsoleto (RC2/RC4)'
+        end
+
+        raise 'Certificado PKCS#12 inválido o password incorrecta (openssl)'
       end
 
       def resolve_p12_path!

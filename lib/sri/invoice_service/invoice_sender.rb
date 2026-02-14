@@ -3,18 +3,20 @@
 require 'base64'
 require 'savon'
 
+require_relative '../constants'
+
 module Sri
   module InvoiceService
     # Sends a signed invoice XML to SRI sandbox endpoints.
     class InvoiceSender
-      TEST_RECEPTION_WSDL = 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl'
-      TEST_AUTHORIZATION_WSDL = 'https://celcer.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl'
 
-      PRODUCTION_RECEPTION_WSDL = 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/RecepcionComprobantesOffline?wsdl'
-      PRODUCTION_AUTHORIZATION_WSDL = 'https://cel.sri.gob.ec/comprobantes-electronicos-ws/AutorizacionComprobantesOffline?wsdl'
+      TEST_RECEPTION_WSDL = Sri::Constants::TEST_RECEPTION_WSDL
+      TEST_AUTHORIZATION_WSDL = Sri::Constants::TEST_AUTHORIZATION_WSDL
+      PRODUCTION_RECEPTION_WSDL = Sri::Constants::PRODUCTION_RECEPTION_WSDL
+      PRODUCTION_AUTHORIZATION_WSDL = Sri::Constants::PRODUCTION_AUTHORIZATION_WSDL
 
-      TEST_ENVIRONMENT = 1
-      PRODUCTION_ENVIRONMENT = 2
+      TEST_ENVIRONMENT = Sri::Constants::TEST_ENVIRONMENT
+      PRODUCTION_ENVIRONMENT = Sri::Constants::PRODUCTION_ENVIRONMENT
 
       def initialize(reception_client: nil, authorization_client: nil, environment: 1)
         @reception_client = reception_client
@@ -48,7 +50,7 @@ module Sri
       private
 
       def reception_client
-        wsdl = @environment == :production ? PRODUCTION_RECEPTION_WSDL : TEST_RECEPTION_WSDL
+        wsdl = @environment == PRODUCTION_ENVIRONMENT ? PRODUCTION_RECEPTION_WSDL : TEST_RECEPTION_WSDL
         @reception_client ||= Savon.client(
           wsdl:,
           convert_request_keys_to: :none,
@@ -59,7 +61,7 @@ module Sri
       end
 
       def authorization_client
-        wsdl = @environment == :production ? PRODUCTION_AUTHORIZATION_WSDL : TEST_AUTHORIZATION_WSDL
+        wsdl = @environment == PRODUCTION_ENVIRONMENT ? PRODUCTION_AUTHORIZATION_WSDL : TEST_AUTHORIZATION_WSDL
         @authorization_client ||= Savon.client(
           wsdl:,
           convert_request_keys_to: :none,

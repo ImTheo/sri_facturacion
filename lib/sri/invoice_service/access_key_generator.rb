@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'nokogiri'
 require 'date'
 require 'openssl'
 
@@ -9,7 +10,7 @@ module Sri
       WEIGHTS = [2, 3, 4, 5, 6, 7].freeze
 
       # Generates an access key from an Nokogiri XML document
-      def self.generate!(doc:, sequential:)
+      def self.generate!(doc:, sequential:, numerical_code: nil)
         ruc = doc.at_xpath('//infoTributaria/ruc').text.strip
         ambiente = doc.at_xpath('//infoTributaria/ambiente').text.strip
         estab = doc.at_xpath('//infoTributaria/estab').text.strip
@@ -21,7 +22,7 @@ module Sri
         dd, mm, yyyy = fecha_str.split('/').map(&:to_i)
         fecha = Date.new(yyyy, mm, dd)
 
-        codigo_numerico = random8
+        codigo_numerico = numerical_code || random8
         ddmmaaaa = fecha.is_a?(Date) ? fecha.strftime('%d%m%Y') : fecha.to_s
         serie = "#{estab}#{pto_emi}"
         sec9 = sequential.to_s.rjust(9, '0')

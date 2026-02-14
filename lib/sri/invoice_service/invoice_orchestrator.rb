@@ -1,6 +1,13 @@
 # frozen_string_literal: true
 
+require 'base64'
 require 'nokogiri'
+require 'open3'
+require 'savon'
+require 'tempfile'
+require 'openssl'
+require 'securerandom'
+require 'time'
 
 module Sri
   module InvoiceService
@@ -14,12 +21,12 @@ module Sri
       DS_NS = 'http://www.w3.org/2000/09/xmldsig#'
       XADES_NS = 'http://uri.etsi.org/01903/v1.3.2#'
 
-      def initialize(p12_base64:, p12_password:, xml_string:, sequential:, root_id: 'comprobante')
+      def initialize(p12_base64:, p12_password:, xml_string:, sequential:, numerical_code: nil)
         @p12_base64 = p12_base64
         @p12_password = p12_password
         @xml_string = xml_string
-        @root_id = root_id
         @sequential = sequential
+        @numerical_code = numerical_code
       end
 
       def call
@@ -27,13 +34,13 @@ module Sri
         raise 'Debe proporcionar xml_string' if unsigned_xml.strip.empty?
 
         doc = Nokogiri::XML(@xml_string.to_s) { |cfg| cfg.strict.noblanks }
-        environment = doc.at_xpath('//infoTributaria/ambiente').text.strip
+        environment = doc.at_xpath('//infoTributaria/ambiente').text.strip.to_i
         builder = Sri::InvoiceService::InvoiceBuilder.new(
           doc:,
           sequential: @sequential,
           p12_base64: @p12_base64,
           p12_password: @p12_password,
-          root_id: @root_id
+          numerical_code: @numerical_code
         )
 
         built = builder.call
